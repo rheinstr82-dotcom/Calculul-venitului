@@ -1,1 +1,255 @@
 
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Калькулятор Дохода Stil/Bun</title>
+<meta name="theme-color" content="#1565C0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Доход">
+<script>
+    const manifestData = {
+      "name": "Калькулятор Дохода Stil/Bun",
+      "short_name": "Доход",
+      "start_url": "./index.html",
+      "display": "standalone",
+      "background_color": "#f8f9fa",
+      "theme_color": "#1565C0",
+      "icons": [
+        {
+          "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAADICAYAAACtWK6eAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAABhJREFUeNrswQENAAAAwqD3T20PBxQAAAAg3gACWAA1u80gFAAAAABJRU5ErkJggg==",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    };
+    const blob = new Blob([JSON.stringify(manifestData)], {type: 'application/json'});
+    const manifestURL = URL.createObjectURL(blob);
+    const link = document.createElement('link');
+    link.rel = 'manifest';
+    link.href = manifestURL;
+    document.head.appendChild(link);
+</script>
+<style>
+    :root {
+        --primary: #1565C0;
+        --primary-dark: #0D47A1;
+        --danger: #e53935;
+        --danger-hover: #c62828;
+        --success: #2e7d32;
+        --bg: #f8f9fa;
+        --card-bg: #ffffff;
+        --text: #333333;
+        --border: #ced4da;
+    }
+
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background-color: var(--bg);
+        color: var(--text);
+        margin: 0;
+        padding: 12px;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    header {
+        text-align: center;
+        padding: 15px 0;
+        margin-bottom: 10px;
+    }
+
+    h1 {
+        font-size: 1.4rem;
+        margin: 0;
+        color: var(--primary-dark);
+    }
+
+    .container {
+        max-width: 600px;
+        margin: 0 auto;
+    }
+
+    .row-item {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .input-group {
+        display: flex;
+        gap: 8px;
+    }
+
+    input[type="text"], input[type="number"] {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font-size: 16px;
+        box-sizing: border-box;
+    }
+
+    .actions-group {
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+        margin-top: 4px;
+    }
+
+    button {
+        padding: 8px 12px;
+        font-size: 13px;
+        border-radius: 6px;
+        border: none;
+        cursor: pointer;
+        font-weight: 500;
+        transition: background 0.2s;
+    }
+
+    .btn-add-below {
+        background-color: var(--primary);
+        color: white;
+    }
+    .btn-add-below:active {
+        background-color: var(--primary-dark);
+    }
+
+    .btn-delete {
+        background-color: var(--danger);
+        color: white;
+    }
+    .btn-delete:active {
+        background-color: var(--danger-hover);
+    }
+
+    .summary-card {
+        background: var(--primary-dark);
+        color: white;
+        padding: 15px;
+        border-radius: 8px;
+        margin-top: 20px;
+        text-align: center;
+        font-size: 1.2rem;
+        font-weight: bold;
+    }
+
+    .global-actions {
+        margin-top: 15px;
+        display: flex;
+        gap: 10px;
+    }
+
+    .btn-global {
+        flex: 1;
+        padding: 12px;
+        font-size: 15px;
+        background-color: var(--success);
+        color: white;
+        border-radius: 6px;
+        border: none;
+        font-weight: bold;
+    }
+</style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Stil/Bun — Калькулятор Дохода</h1>
+    </header>
+
+    <div id="rows-container">
+        <div class="row-item">
+            <input type="text" class="item-name" placeholder="Название товара / позиции">
+            <div class="input-group">
+                <input type="number" class="item-qty" placeholder="Кол-во" value="1" min="1" oninput="calculate()">
+                <input type="number" class="item-price" placeholder="Цена (лей)" value="" min="0" oninput="calculate()">
+            </div>
+            <div class="actions-group">
+                <button type="button" class="btn-add-below" onclick="addRowBelow(this)">Добавить строку</button>
+                <button type="button" class="btn-delete" onclick="deleteRow(this)">Удалить</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="summary-card" id="total-display">
+        Итого: 0 лей
+    </div>
+
+    <div class="global-actions">
+        <button type="button" class="btn-global" onclick="addNewRowAtEnd()">+ Добавить товар в конец</button>
+    </div>
+</div>
+
+<script>
+function createRowHTML() {
+    return `
+        <input type="text" class="item-name" placeholder="Название товара / позиции">
+        <div class="input-group">
+            <input type="number" class="item-qty" placeholder="Кол-во" value="1" min="1" oninput="calculate()">
+            <input type="number" class="item-price" placeholder="Цена (лей)" value="" min="0" oninput="calculate()">
+        </div>
+        <div class="actions-group">
+            <button type="button" class="btn-add-below" onclick="addRowBelow(this)">Добавить строку</button>
+            <button type="button" class="btn-delete" onclick="deleteRow(this)">Удалить</button>
+        </div>
+    `;
+}
+
+function addRowBelow(button) {
+    const currentRow = button.closest('.row-item');
+    const newRow = document.createElement('div');
+    newRow.className = 'row-item';
+    newRow.innerHTML = createRowHTML();
+    currentRow.after(newRow);
+    calculate();
+}
+
+function addNewRowAtEnd() {
+    const container = document.getElementById('rows-container');
+    const newRow = document.createElement('div');
+    newRow.className = 'row-item';
+    newRow.innerHTML = createRowHTML();
+    container.appendChild(newRow);
+    calculate();
+}
+
+function deleteRow(button) {
+    const container = document.getElementById('rows-container');
+    const currentRow = button.closest('.row-item');
+    
+    if (container.children.length > 1) {
+        currentRow.remove();
+    } else {
+        currentRow.querySelector('.item-name').value = '';
+        currentRow.querySelector('.item-qty').value = '1';
+        currentRow.querySelector('.item-price').value = '';
+    }
+    calculate();
+}
+
+function calculate() {
+    const rows = document.querySelectorAll('.row-item');
+    let total = 0;
+
+    rows.forEach(row => {
+        const qty = parseFloat(row.querySelector('.item-qty').value) || 0;
+        const price = parseFloat(row.querySelector('.item-price').value) || 0;
+        total += qty * price;
+    });
+
+    document.getElementById('total-display').innerText = `Итого: ${total.toLocaleString('ru-RU')} лей`;
+}
+</script>
+
+</body>
+</html>
