@@ -1,0 +1,1882 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Расчёт выручки</title>
+<meta name="theme-color" content="#1565C0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Выручка">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('./sw.js').catch(function(e){ console.log('SW fail', e); });
+  });
+}
+</script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&family=Roboto+Mono:wght@400;500;600&display=swap');
+:root {
+  --pri: #1565C0; --pri2: #1976D2; --pri3: #0D47A1;
+  --acc: #E65100; --acc2: #FF6D00;
+  --bg: #F5F7FA; --bg2: #E8EEF7;
+  --white: #fff; --border: #D0DAE8;
+  --text: #1A2332; --text2: #4A5568; --text3: #718096;
+  --green: #2E7D32; --green2: #E8F5E9;
+  --red: #C62828; --red2: #FFEBEE;
+  --orange2: #FFF3E0;
+  --r: 8px;
+  --shadow: 0 2px 6px rgba(21,101,192,.10);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;max-width:480px;margin:0 auto;overflow-x:hidden}
+
+/* ── TOPBAR ── */
+.topbar{background:var(--pri);color:#fff;padding:5px 10px 4px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(13,71,161,.25)}
+.topbar-r1{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.topbar-title{font-size:14px;font-weight:700}
+.topbar-sub{font-size:9px;opacity:.72;margin-top:0px}
+.topbar-icons{display:flex;align-items:center;gap:4px;flex-shrink:0}
+.ti-btn{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);border-radius:50%;width:28px;height:28px;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s;flex-shrink:0}
+.ti-btn:active{background:rgba(255,255,255,.32)}
+.ti-btn-search{border-radius:16px;width:auto;padding:0 8px;gap:3px;white-space:nowrap;height:28px;font-size:12px}
+.rate-chip{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);border-radius:16px;padding:3px 8px;display:flex;align-items:center;gap:4px;cursor:pointer;transition:background .15s;flex-shrink:0}
+.rate-chip:active{background:rgba(255,255,255,.26)}
+.rate-text{font-size:12px;font-weight:600;font-family:'Roboto Mono',monospace}
+.rate-label{font-size:8px;opacity:.78}
+.autosave-row{display:flex;align-items:center;gap:3px;font-size:8px;color:rgba(255,255,255,.55);margin-top:2px;justify-content:flex-end}
+.as-dot{width:4px;height:4px;border-radius:50%;background:#69F0AE;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ── SUMMARY ── */
+.summary-bar{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;padding:5px 6px 3px}
+.sum-card{background:#fff;border-radius:var(--r);padding:5px 6px 4px;box-shadow:var(--shadow);display:flex;flex-direction:column;align-items:center;text-align:center}
+.sum-label{font-size:8px;color:var(--text3);font-weight:600;margin-bottom:2px;text-transform:uppercase;letter-spacing:.2px;line-height:1.3}
+.sum-val{font-size:16px;font-weight:700;font-family:'Roboto Mono',monospace;color:var(--pri)}
+.sum-val.green{color:var(--green)}
+.sum-val.red{color:var(--red)}
+.cal-btn{background:var(--pri3);border-radius:var(--r);padding:5px 6px 4px;box-shadow:var(--shadow);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;border:none;font-family:'Roboto',sans-serif;color:#fff;gap:1px;transition:background .15s}
+.cal-btn:active{background:#0a3580}
+.cal-btn-icon{font-size:18px;line-height:1.1}
+.cal-btn-label{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;opacity:.82}
+
+/* ── TABLE ── */
+.tbl-header{display:grid;grid-template-columns:minmax(0,1.6fr) 54px 76px 78px;padding:5px 6px 4px;background:var(--pri3);color:#fff;font-size:10px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;align-items:center}
+.th{padding:0 3px;line-height:1.25}
+.th.c{text-align:center}
+.rows-wrap{flex:1;overflow-y:auto;padding:3px 0 0}
+
+.row-w{margin:0 6px;border-bottom:1.5px solid #000}
+.row-item{display:grid;grid-template-columns:minmax(0,1.6fr) 54px 76px 78px;background:#fff;border-radius:0;box-shadow:none;overflow:hidden;border:none;transition:background .15s}
+.row-item:focus-within{background:#F0F6FF}
+.row-w.expanded .row-item{background:var(--orange2)}
+
+.cell{padding:0;display:flex;align-items:stretch;border-right:2px solid #90A4AE}
+.cell:last-child{border-right:none}
+.cell input{width:100%;padding:7px 4px;font-family:'Roboto',sans-serif;font-size:15px;color:var(--text);border:none;outline:none;background:transparent}
+.cell input::placeholder{color:#C8D4E4}
+.cell-name input{font-weight:600;font-size:15px;padding:7px 4px;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.cell-num input{font-family:'Roboto Mono',monospace;font-size:15px;font-weight:600;text-align:right;padding-left:2px;padding-right:3px}
+
+.cell-result{cursor:pointer;user-select:none;-webkit-user-select:none;display:flex;align-items:stretch}
+.result-disp{width:100%;padding:3px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg);gap:1px;min-height:36px;transition:background .12s}
+.row-w.expanded .result-disp{background:var(--orange2)}
+.cell-result:active .result-disp{background:#e0e7f5}
+.mult-badge{font-size:11px;font-weight:700;color:var(--acc);line-height:1;font-family:'Roboto Mono',monospace}
+.mult-badge.muted{color:var(--text3);font-weight:400}
+.profit-val{font-size:15px;font-weight:700;font-family:'Roboto Mono',monospace;line-height:1}
+.profit-val.pos{color:var(--green)}
+.profit-val.neg{color:var(--red)}
+.profit-val.zero{color:var(--text3);font-weight:400;font-size:13px}
+
+/* mult expander */
+.mult-exp{background:#fff;border:1.5px solid var(--acc2);border-top:none;border-radius:0 0 var(--r) var(--r);padding:6px 10px 7px;display:none;align-items:center;gap:8px;box-shadow:0 5px 14px rgba(230,81,0,.13)}
+.row-w.expanded .mult-exp{display:flex}
+.mult-x{font-size:22px;font-weight:800;color:var(--acc);line-height:1;flex-shrink:0}
+.mult-inp-wrap{flex:1;display:flex;align-items:center;background:var(--orange2);border:1.5px solid var(--acc2);border-radius:6px;padding:5px 8px}
+.mult-inp{flex:1;border:none;outline:none;background:transparent;font-size:20px;font-weight:700;font-family:'Roboto Mono',monospace;color:var(--acc);min-width:0}
+.mult-preview{font-size:12px;font-weight:600;font-family:'Roboto Mono',monospace;color:var(--text2);white-space:nowrap;flex-shrink:0}
+.mult-preview.pos{color:var(--green)}
+.mult-preview.neg{color:var(--red)}
+
+/* selected row highlight */
+.row-w.selected .row-item{background:#E3F2FD !important;}
+
+/* empty */
+.empty{display:none;flex-direction:column;align-items:center;padding:28px 20px;color:var(--text3);text-align:center}
+.empty.show{display:flex}
+
+/* add row */
+.add-row{display:flex;align-items:center;justify-content:center;gap:6px;padding:8px;background:var(--bg2);border:2px dashed var(--border);border-radius:var(--r);color:var(--pri);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s}
+.add-row:active{background:#fff;border-color:var(--pri)}
+.del-row-btn{display:flex;align-items:center;justify-content:center;gap:5px;padding:8px 12px;background:var(--red2);border:1.5px solid #FFCDD2;border-radius:var(--r);color:var(--red);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .15s;flex-shrink:0}
+.del-row-btn:active{background:var(--red);color:#fff;transform:scale(.96)}
+.del-row-btn.disabled{opacity:.35;pointer-events:none}
+
+/* bottom */
+.bottom{background:#fff;border-top:1.5px solid var(--border);padding:7px 10px 10px;display:flex;gap:6px;box-shadow:0 -2px 8px rgba(0,0,0,.06);position:sticky;bottom:0}
+.bot-btn{flex:1;padding:10px 4px;border-radius:var(--r);border:none;font-size:13px;font-weight:700;cursor:pointer;font-family:'Roboto',sans-serif;display:flex;align-items:center;justify-content:center;gap:5px;transition:all .15s}
+.btn-reset{background:var(--orange2);color:var(--acc);border:1.5px solid #FFCC80;flex-direction:column;gap:0;padding:6px 2px}
+.btn-reset .ri{font-size:14px}
+.btn-reset .rl{font-size:10px;font-weight:700}
+.btn-reset:active{background:#FFE0B2;transform:scale(.96)}
+.btn-save{background:linear-gradient(135deg,var(--pri),var(--pri3));color:#fff;box-shadow:0 3px 10px rgba(21,101,192,.28)}
+.btn-save:active{transform:scale(.97);box-shadow:none}
+
+/* ── MODALS ── */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.46);z-index:200;display:flex;align-items:flex-start;justify-content:center;padding-top:55px;opacity:0;pointer-events:none;transition:opacity .2s}
+.overlay.open{opacity:1;pointer-events:all}
+.mbox{background:#fff;border-radius:16px;width:calc(100% - 36px);max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,.22);transform:translateY(-12px) scale(.97);transition:transform .2s;display:flex;flex-direction:column;overflow:hidden}
+.overlay.open .mbox{transform:translateY(0) scale(1)}
+.mbody{padding:18px 18px 16px}
+.mtitle{font-size:15px;font-weight:700;color:var(--pri);margin-bottom:3px}
+.mdesc{font-size:12px;color:var(--text3);margin-bottom:14px}
+.minput-wrap{display:flex;align-items:center;gap:8px;border:2px solid var(--pri);border-radius:var(--r);padding:9px 12px;background:var(--bg2)}
+.minput{border:none;background:transparent;font-size:22px;font-family:'Roboto Mono',monospace;font-weight:600;color:var(--text);width:100%;outline:none}
+.mbtns{display:flex;gap:8px;margin-top:14px}
+.mbtn{flex:1;padding:10px;border-radius:7px;border:none;font-size:14px;font-weight:600;cursor:pointer;font-family:'Roboto',sans-serif}
+.mbtn-cancel{background:var(--bg2);color:var(--text2)}
+.mbtn-ok{background:var(--pri);color:#fff}
+.mbtn-full{width:100%;margin-top:10px;background:var(--bg2);color:var(--text2);padding:11px;border-radius:7px;border:none;font-size:14px;font-weight:600;cursor:pointer;font-family:'Roboto',sans-serif}
+
+/* lang modal */
+.lang-btn{width:100%;padding:12px 14px;background:var(--bg2);border:1.5px solid var(--border);border-radius:9px;font-size:15px;font-weight:600;font-family:'Roboto',sans-serif;color:var(--text);cursor:pointer;text-align:left;transition:all .13s;margin-bottom:7px}
+.lang-btn:active,.lang-btn.active{background:var(--bg);border-color:var(--pri);color:var(--pri)}
+.lang-btn:last-child{margin-bottom:0}
+
+/* calendar */
+.cal-header{padding:14px 14px 10px;border-bottom:1px solid var(--border);flex-shrink:0}
+.cal-title-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.cal-title{font-size:15px;font-weight:700;color:var(--pri)}
+.cal-close{width:28px;height:28px;border-radius:50%;border:none;background:var(--bg2);color:var(--text2);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.cal-date-range{font-size:13px;font-weight:600;color:var(--pri);padding:6px 10px;background:var(--bg2);border-radius:6px;text-align:center;margin-bottom:8px}
+.cal-filter{display:flex;gap:5px;align-items:center}
+.cal-filter-label{font-size:10px;color:var(--text3);white-space:nowrap}
+.cal-date-inp{flex:1;border:1.5px solid var(--border);border-radius:6px;padding:5px 6px;font-size:12px;font-family:'Roboto',sans-serif;color:var(--text);outline:none;background:#fff;min-width:0}
+.cal-date-inp:focus{border-color:var(--pri)}
+.cal-filter-btn{padding:6px 12px;border-radius:6px;border:none;background:var(--pri);color:#fff;font-size:13px;font-weight:700;cursor:pointer}
+.cal-body{flex:1;overflow-y:auto;padding:10px 12px 16px}
+.cal-empty{text-align:center;color:var(--text3);font-size:13px;padding:32px 0;line-height:1.8}
+.cal-group{margin-bottom:14px}
+.cal-date-lbl{font-size:10px;font-weight:700;color:var(--pri);text-transform:uppercase;letter-spacing:.5px;padding:3px 0 5px;border-bottom:1px solid var(--bg2);margin-bottom:6px}
+.cal-entry{background:var(--bg);border-radius:var(--r);padding:8px 10px;margin-bottom:4px;border:1.5px solid transparent;transition:border-color .15s,background .15s;cursor:pointer;position:relative}
+.cal-entry.open{background:#fff;border-color:var(--pri2)}
+.cal-entry-hdr{display:flex;align-items:center;margin-bottom:5px;gap:6px;padding-right:28px}
+.cal-time{font-size:11px;color:var(--text3)}
+.cal-rate-lbl{font-size:11px;color:var(--text2);font-family:'Roboto Mono',monospace}
+.cal-arrow{font-size:10px;color:var(--text3);transition:transform .15s;margin-left:auto}
+.cal-entry.open .cal-arrow{transform:rotate(180deg)}
+.cal-del-btn{position:absolute;top:7px;right:8px;width:22px;height:22px;border-radius:50%;background:var(--red2);border:1px solid var(--red);color:var(--red);font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.cal-del-btn:active{background:var(--red);color:#fff}
+.cal-stats{display:flex;gap:10px}
+.cal-stat{display:flex;flex-direction:column}
+.cal-stat-lbl{font-size:8px;color:var(--text3);text-transform:uppercase;font-weight:600;letter-spacing:.3px}
+.cal-stat-val{font-size:13px;font-weight:700;font-family:'Roboto Mono',monospace;color:var(--text)}
+.cal-stat-val.green{color:var(--green)}
+.cal-stat-val.red{color:var(--red)}
+.cal-detail{display:none;margin-top:8px}
+.cal-entry.open .cal-detail{display:block}
+.cal-tbl{width:100%;border-collapse:collapse}
+.cal-tbl th{text-align:left;color:var(--text3);font-weight:600;padding:2px 3px;font-size:9px;text-transform:uppercase}
+.cal-tbl td{padding:3px;color:var(--text);border-top:1px solid var(--bg2);font-family:'Roboto Mono',monospace;font-size:11px}
+.cal-tbl td:first-child{font-family:'Roboto',sans-serif;font-size:11px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.td-p{font-weight:700}
+.td-p.pos{color:var(--green)}
+.td-p.neg{color:var(--red)}
+
+/* calculator */
+.calc-body{padding:16px 16px 14px;max-height:calc(100vh - 100px)}
+.calc-expr{font-size:11px;color:var(--text3);text-align:right;min-height:16px;font-family:'Roboto Mono',monospace;margin-bottom:2px}
+.calc-disp{background:var(--bg2);border:2px solid var(--border);border-radius:var(--r);padding:12px;font-family:'Roboto Mono',monospace;font-size:26px;font-weight:700;color:var(--text);text-align:right;margin-bottom:12px;min-height:52px;word-break:break-all}
+.calc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.cbtn{padding:14px 6px;border-radius:var(--r);border:none;font-size:16px;font-weight:700;cursor:pointer;font-family:'Roboto',sans-serif;transition:all .13s}
+.cbtn:active{transform:scale(.93)}
+.cbtn-num{background:var(--bg2);color:var(--text)}
+.cbtn-num:active{background:var(--border)}
+.cbtn-op{background:#E3EDFF;color:var(--pri)}
+.cbtn-op:active{background:#C5D8FF}
+.cbtn-eq{background:var(--pri);color:#fff;grid-column:span 1}
+.cbtn-eq:active{background:var(--pri3)}
+.cbtn-clear{background:var(--red2);color:var(--red)}
+.cbtn-clear:active{background:var(--red);color:#fff}
+.cbtn-pct{background:var(--orange2);color:var(--acc)}
+.cbtn-pct:active{background:#FFCC80}
+.cbtn-zero{grid-column:span 2}
+
+/* search */
+.search-input{border:none;background:transparent;font-size:18px;font-family:'Roboto',monospace;font-weight:600;color:var(--text);width:100%;outline:none}
+.search-count-badge{font-size:13px;font-weight:700;color:var(--pri);background:var(--bg2);border-radius:20px;padding:4px 14px;text-align:center;margin-top:8px}
+.search-match .row-item{border-color:#FFA000 !important}
+
+/* toast */
+.toast{position:fixed;bottom:86px;left:50%;transform:translateX(-50%) translateY(14px);background:#263238;color:#fff;padding:9px 18px;border-radius:22px;font-size:13px;font-weight:500;opacity:0;pointer-events:none;transition:all .25s;white-space:nowrap;z-index:300}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ── LANDSCAPE: full width, hide bottom bar, ~4 rows ── */
+@media screen and (orientation: landscape) {
+  html, body {
+    max-width: 100%;
+    height: 100%;
+    height: 100dvh;
+    overflow: hidden;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .topbar { padding: 4px 10px 4px; flex-shrink: 0; }
+  .topbar-title { font-size: 14px; }
+  .topbar-sub { display: none; }
+  .autosave-row { display: none; }
+
+  /* Search + rate ~2× larger in landscape */
+  .ti-btn-search {
+    height: 44px !important;
+    min-height: 44px;
+    padding: 0 14px !important;
+    font-size: 18px !important;
+    border-radius: 22px !important;
+    gap: 6px !important;
+  }
+  .ti-btn-search #L-search-pill {
+    font-size: 14px !important;
+    font-weight: 700 !important;
+  }
+  .rate-chip {
+    padding: 6px 14px !important;
+    border-radius: 22px !important;
+    min-height: 44px;
+  }
+  .rate-text { font-size: 18px !important; }
+  .rate-label { font-size: 11px !important; opacity: .9; }
+
+  .summary-bar {
+    grid-template-columns: 1fr 1fr 1fr 1fr !important;
+    gap: 5px;
+    padding: 3px 8px 2px;
+    flex-shrink: 0;
+  }
+  .sum-card, .cal-btn { padding: 3px 6px; }
+  .sum-val { font-size: 15px; }
+  .sum-label, .cal-btn-label { font-size: 8px; }
+  .cal-btn-icon { font-size: 15px; }
+
+  .tbl-header {
+    grid-template-columns: minmax(120px, 1.8fr) 58px 90px 96px;
+    padding: 3px 8px;
+    font-size: 9px;
+    flex-shrink: 0;
+  }
+
+  /* main list takes all remaining height */
+  .rows-wrap {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 2px 0 4px;
+    -webkit-overflow-scrolling: touch;
+    min-height: 0;
+  }
+  .row-w { margin: 0 8px; border-bottom: 1.5px solid #000; }
+  .row-item {
+    grid-template-columns: minmax(120px, 1.8fr) 58px 90px 96px;
+    min-height: calc((100dvh - 95px) / 4);
+    max-height: calc((100dvh - 95px) / 4);
+  }
+  .cell-name input { font-size: 16px !important; padding: 6px 4px !important; }
+  .cell-num input { font-size: 17px !important; padding: 6px 4px; font-weight: 600; }
+  .profit-val { font-size: 16px; }
+  .mult-badge { font-size: 10px; }
+  .result-disp { min-height: 100%; }
+
+  /* hide bottom bars in landscape → more space for ~4 rows */
+  .bottom { display: none !important; }
+  .row-actions-bar { display: none !important; }
+
+  .mbox { max-width: 520px; max-height: 92dvh; }
+  .calc-body { max-height: 88dvh; }
+  .cbtn { padding: 9px 6px; font-size: 14px; }
+}
+
+@media screen and (orientation: landscape) and (min-width: 700px) {
+  .tbl-header,
+  .row-item {
+    grid-template-columns: minmax(160px, 2fr) 64px 110px 116px;
+  }
+  .cell-name input { font-size: 16px !important; }
+  .cell-num input { font-size: 18px !important; }
+  .sum-val { font-size: 17px; }
+  .row-item {
+    min-height: calc((100dvh - 100px) / 4);
+    max-height: calc((100dvh - 100px) / 4);
+  }
+}
+
+
+/* zoom reset FAB */
+.zoom-reset{
+  position:fixed;right:12px;bottom:78px;z-index:9999;
+  width:52px;height:52px;border-radius:50%;
+  border:2px solid var(--pri);background:#fff;color:var(--pri);
+  font-size:12px;font-weight:800;font-family:'Roboto Mono',monospace;
+  box-shadow:0 4px 14px rgba(21,101,192,.35);
+  display:none;align-items:center;justify-content:center;
+  cursor:pointer;line-height:1.1;text-align:center;
+  opacity:0;pointer-events:none;transition:opacity .2s;
+}
+.zoom-reset.show{
+  display:flex;opacity:1;pointer-events:auto;
+}
+@media screen and (orientation: landscape){
+  .zoom-reset{bottom:16px}
+}
+
+
+/* history modal — scroll full list */
+.mbox-cal{
+  max-height:calc(100dvh - 48px);
+  height:calc(100dvh - 48px);
+  width:calc(100% - 24px);
+  max-width:480px;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+.mbox-cal .cal-header{flex-shrink:0}
+.mbox-cal .cal-body{
+  flex:1 1 auto;
+  min-height:0;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
+  padding:10px 12px 24px;
+}
+.overlay#modalCal{
+  align-items:stretch;
+  padding:12px 0 12px;
+  justify-content:center;
+}
+
+
+/* voice search */
+.voice-btn{
+  flex-shrink:0;width:44px;height:44px;border-radius:50%;
+  border:2px solid var(--pri);background:var(--bg2);color:var(--pri);
+  font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:all .15s;
+}
+.voice-btn:active{transform:scale(.94)}
+.voice-btn.listening{
+  background:#C62828;border-color:#C62828;color:#fff;
+  animation:voicePulse 1s ease-in-out infinite;
+}
+@keyframes voicePulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(198,40,40,.45)}
+  50%{box-shadow:0 0 0 10px rgba(198,40,40,0)}
+}
+.minput-wrap.voice-wrap{gap:6px}
+
+
+/* row text color */
+.cell-name input{width:100%}
+
+
+.mark-palette{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.mark-swatch{
+  width:32px;height:32px;border-radius:8px;border:2px solid #CFD8DC;
+  cursor:pointer;padding:0;
+}
+.mark-swatch:active{transform:scale(.92)}
+.mark-swatch.on{border-color:#1565C0;box-shadow:0 0 0 2px rgba(21,101,192,.35)}
+.mark-swatch.none{background:#fff;position:relative}
+.mark-swatch.none::after{
+  content:'';position:absolute;left:4px;right:4px;top:50%;height:2px;
+  background:#C62828;transform:rotate(-45deg);
+}
+
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="topbar-r1">
+    <div>
+      <div class="topbar-title" id="L-title">📊 Расчёт выручки</div>
+      <div class="topbar-sub" id="L-sub">Учёт продаж и прибыли</div>
+    </div>
+    <div class="topbar-icons">
+      <button class="ti-btn ti-btn-search" onclick="openSearch()" title="Поиск">🔍 <span id="L-search-pill" style="font-size:10px;font-weight:600;opacity:.88;letter-spacing:.2px">Поиск</span></button>
+      <button class="ti-btn" onclick="openLang()" title="Язык">🌐</button>
+      <div class="rate-chip" onclick="openRate()">
+        <div>
+          <div class="rate-text" id="rateDisplay">18.50</div>
+          <div class="rate-label" id="L-rate-label">Курс валюты</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="autosave-row"><div class="as-dot"></div><span id="L-autosave">Автосохранение</span></div>
+</div>
+
+<!-- SUMMARY -->
+<div class="summary-bar" style="grid-template-columns:1fr 1fr 1fr 1fr">
+  <button class="cal-btn" onclick="openCal()">
+    <span class="cal-btn-icon">📅</span>
+    <span class="cal-btn-label" id="L-cal-btn">История</span>
+  </button>
+  <button class="cal-btn" onclick="openCalc()" style="background:var(--acc);padding:4px 4px 3px">
+    <span class="cal-btn-icon" style="font-size:15px">🧮</span>
+    <span class="cal-btn-label" id="L-calc-btn" style="font-size:7px">Калькулятор</span>
+  </button>
+  <div class="sum-card">
+    <div class="sum-label" id="L-revenue">Прибыль в<br>нац. валюте</div>
+    <div class="sum-val" id="sumRevenue">0.00</div>
+  </div>
+  <div class="sum-card">
+    <div class="sum-label" id="L-profit">Прибыль<br>по курсу</div>
+    <div class="sum-val green" id="sumProfit">+0.00</div>
+  </div>
+</div>
+
+<!-- TABLE HEADER -->
+<div class="tbl-header">
+  <div class="th" id="L-col-name">Наименование</div>
+  <div class="th c" id="L-col-cost">Себест.<br>в валюте</div>
+  <div class="th c" id="L-col-sold">Продажа<br>нац. вал.</div>
+  <div class="th c" id="L-col-result">Итог<br>по курсу</div>
+  <div class="th"></div>
+</div>
+
+<!-- ROWS -->
+<div class="rows-wrap" id="rowsWrap">
+  <div class="empty" id="emptyState">
+    <div style="font-size:40px;margin-bottom:8px;opacity:.45">🧾</div>
+    <div style="font-size:13px" id="L-empty">Нет товаров.<br>Нажмите «＋ Добавить».</div>
+  </div>
+</div>
+
+<!-- ADD / DELETE ROW BUTTONS -->
+<div class="row-actions-bar" style="display:flex;gap:6px;margin:3px 6px 5px">
+  <div class="add-row" style="flex:1;margin:0" onclick="addRowAfterSelected()" id="L-add-row">＋ Добавить строку</div>
+  <div class="del-row-btn" onclick="deleteSelected()" id="L-del-row">🗑 Удалить строку</div>
+</div>
+
+<!-- BOTTOM -->
+<input type="file" id="catalogFileInput" accept="application/json,.json" style="display:none" onchange="importCatalogFromFile(this.files[0])">
+<div class="bottom">
+  <button class="bot-btn btn-reset" onclick="confirmReset()">
+    <span class="ri">🔄</span><span class="rl" id="L-btn-reset">Сброс</span>
+  </button>
+  <button class="bot-btn bot-btn-sm" style="background:#E3F2FD;color:var(--pri);border:1.5px solid #90CAF9;flex:0.45;flex-direction:column;gap:0;padding:4px 1px;min-width:0" onclick="exportCatalog()" title="Catalog">
+    <span class="ri" style="font-size:11px">📦</span><span class="rl" id="L-btn-catalog" style="font-size:8px;font-weight:700">Каталог</span>
+  </button>
+  <button class="bot-btn bot-btn-sm" style="background:#FFF8E1;color:#F57C00;border:1.5px solid #FFCC80;flex:0.45;flex-direction:column;gap:0;padding:4px 1px;min-width:0" onclick="triggerImportCatalog()" title="Import">
+    <span class="ri" style="font-size:11px">📤</span><span class="rl" id="L-btn-import" style="font-size:8px;font-weight:700">Загрузка</span>
+  </button>
+  <button class="bot-btn btn-save" onclick="saveData()" id="L-btn-save">💾 Сохранить</button>
+</div>
+
+<!-- MODAL: RATE -->
+<div class="overlay" id="modalRate" onclick="if(event.target===this)closeRate()">
+  <div class="mbox" style="max-height:unset">
+    <div class="mbody">
+      <div class="mtitle" id="L-rate-title">💱 Курс валюты</div>
+      <div class="mdesc" id="L-rate-desc">Введите текущий курс валюты</div>
+      <div class="minput-wrap">
+        <span style="font-size:16px;color:var(--pri)">$</span>
+        <input class="minput" type="number" id="rateInput" step="0.01" min="0.01" placeholder="18.50" inputmode="decimal">
+        <span style="font-size:12px;color:var(--text3)" id="L-rate-unit">MDL / USD</span>
+      </div>
+      <div class="mbtns">
+        <button class="mbtn mbtn-cancel" onclick="closeRate()" id="L-cancel">Отмена</button>
+        <button class="mbtn mbtn-ok" onclick="applyRate()" id="L-apply">Применить</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: LANG -->
+<div class="overlay" id="modalLang" onclick="if(event.target===this)closeLang()">
+  <div class="mbox" style="max-height:unset">
+    <div class="mbody">
+      <div class="mtitle">🌐 Язык / Language</div>
+      <div style="margin-top:14px">
+        <button class="lang-btn" onclick="setLang('ru');closeLang()">🇷🇺 Русский</button>
+        <button class="lang-btn" onclick="setLang('en');closeLang()">🇬🇧 English</button>
+        <button class="lang-btn" onclick="setLang('ro');closeLang()">🇲🇩 Română</button>
+        <button class="lang-btn" onclick="setLang('de');closeLang()">🇩🇪 Deutsch</button>
+        <button class="lang-btn" onclick="setLang('es');closeLang()">🇪🇸 Español</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: SEARCH -->
+<div class="overlay" id="modalSearch" onclick="if(event.target===this)closeSearch()">
+  <div class="mbox" style="max-height:unset">
+    <div class="mbody">
+      <div class="mtitle">🔍 <span id="L-search-title">Поиск товара</span></div>
+      <div class="mdesc" id="L-search-desc">Введите название для поиска</div>
+      <div class="minput-wrap voice-wrap">
+        <span style="font-size:16px;color:var(--pri)">🔍</span>
+        <input class="search-input" type="text" id="searchInput" placeholder="Наименование…"
+          oninput="doSearch(this.value)" autocomplete="off" autocorrect="off" spellcheck="false">
+        <button type="button" class="voice-btn" id="voiceSearchBtn" onclick="toggleVoiceSearch()" title="Голосовой поиск">🎤</button>
+      </div>
+      <div id="voiceStatus" style="display:none;margin-top:8px;font-size:12px;color:var(--red);text-align:center;font-weight:600"></div>
+      <div class="search-count-badge" id="searchCount" style="display:none"></div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="mbtn-full" style="margin-top:0;background:var(--red2);color:var(--red)" onclick="clearSearch()" id="L-search-clear">Сбросить</button>
+        <button class="mbtn-full" style="margin-top:0;background:var(--pri);color:#fff" onclick="closeSearch()" id="L-close">Найти</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- MODAL: ROW MARK -->
+<div class="overlay" id="modalMark" onclick="if(event.target===this)closeMark()">
+  <div class="mbox" style="max-height:unset">
+    <div class="mbody">
+      <div class="mtitle" id="L-mark-title">Оформление строки</div>
+      <div class="mdesc" id="L-mark-name" style="font-weight:600;color:var(--text);margin-bottom:12px"></div>
+      <button type="button" class="mbtn-full" style="margin-top:0;background:var(--bg2);color:var(--pri);border:1.5px solid var(--border)" onclick="copyMarkName()" id="L-mark-copy">Копировать название</button>
+      <div style="margin-top:14px;font-size:12px;font-weight:700;color:var(--text2)" id="L-mark-font">Цвет шрифта</div>
+      <div class="mark-palette" id="markFontPalette"></div>
+      <div style="margin-top:14px;font-size:12px;font-weight:700;color:var(--text2)" id="L-mark-fill">Заливка строки</div>
+      <div class="mark-palette" id="markFillPalette"></div>
+      <div class="mbtns" style="margin-top:16px">
+        <button class="mbtn mbtn-cancel" onclick="clearMarkColors()" id="L-mark-clear">Сбросить цвет</button>
+        <button class="mbtn mbtn-ok" onclick="closeMark()" id="L-mark-done">OK</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: CALENDAR -->
+<div class="overlay" id="modalCal" onclick="if(event.target===this)closeCal()">
+  <div class="mbox mbox-cal">
+    <div class="cal-header">
+      <div class="cal-title-row">
+        <div class="cal-title" id="L-cal-title">📅 История расчётов</div>
+        <button class="cal-close" onclick="closeCal()">✕</button>
+      </div>
+      <div class="cal-date-range" id="calDateRange" style="display:none"></div>
+      <div class="cal-filter">
+        <span class="cal-filter-label">С:</span>
+        <input type="date" class="cal-date-inp" id="calFrom">
+        <span class="cal-filter-label">По:</span>
+        <input type="date" class="cal-date-inp" id="calTo">
+        <button class="cal-filter-btn" onclick="renderCal()">▶</button>
+      </div>
+    </div>
+    <div class="cal-body" id="calBody"></div>
+  </div>
+</div>
+
+<!-- MODAL: CALCULATOR -->
+<div class="overlay" id="modalCalc" onclick="if(event.target===this)closeCalc()">
+  <div class="mbox" style="max-height:unset">
+    <div class="calc-body">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-size:15px;font-weight:700;color:var(--pri)">🧮 Калькулятор</div>
+        <button class="cal-close" onclick="closeCalc()">✕</button>
+      </div>
+      <div class="calc-expr" id="calcExpr"></div>
+      <div class="calc-disp" id="calcDisp">0</div>
+      <div class="calc-grid">
+        <button class="cbtn cbtn-clear" onclick="cClear()">C</button>
+        <button class="cbtn cbtn-op" onclick="cSign()">+/−</button>
+        <button class="cbtn cbtn-pct" onclick="cPct()">%</button>
+        <button class="cbtn cbtn-op" onclick="cOp('÷')">÷</button>
+
+        <button class="cbtn cbtn-num" onclick="cNum('7')">7</button>
+        <button class="cbtn cbtn-num" onclick="cNum('8')">8</button>
+        <button class="cbtn cbtn-num" onclick="cNum('9')">9</button>
+        <button class="cbtn cbtn-op" onclick="cOp('×')">×</button>
+
+        <button class="cbtn cbtn-num" onclick="cNum('4')">4</button>
+        <button class="cbtn cbtn-num" onclick="cNum('5')">5</button>
+        <button class="cbtn cbtn-num" onclick="cNum('6')">6</button>
+        <button class="cbtn cbtn-op" onclick="cOp('−')">−</button>
+
+        <button class="cbtn cbtn-num" onclick="cNum('1')">1</button>
+        <button class="cbtn cbtn-num" onclick="cNum('2')">2</button>
+        <button class="cbtn cbtn-num" onclick="cNum('3')">3</button>
+        <button class="cbtn cbtn-op" onclick="cOp('+')">+</button>
+
+        <button class="cbtn cbtn-num cbtn-zero" onclick="cNum('0')">0</button>
+        <button class="cbtn cbtn-num" onclick="cDot()">.</button>
+        <button class="cbtn cbtn-eq" onclick="cEq()">=</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ZOOM RESET -->
+<button type="button" class="zoom-reset" id="zoomReset" title="Сброс масштаба 100%" onclick="return resetAppZoom(event)">100%</button>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+
+// ── DATA ──────────────────────────────────────────────────────
+let rate = 18.50;
+let rows = [];
+let nextId = 1;
+let openMult = null;      // id of row with open multiplier expander
+let selectedRowId = null; // id of currently selected row
+let lastSnap = {};        // for dirty tracking
+let searchQ = '';
+let currentLang = 'ru';
+
+// ── TRANSLATIONS ──────────────────────────────────────────────
+const LANGS = {
+  ru: {
+    title:'📊 Расчёт выручки', sub:'Учёт продаж и прибыли',
+    autosave:'Автосохранение', rateLabel:'Курс валюты',
+    calBtn:'История', calTitle:'📅 История расчётов', calcBtn:'Калькулятор',
+    revenue:'Прибыль в\nнац. валюте', profit:'Прибыль\nпо курсу',
+    colName:'Наименование', colCost:'Себест.\nв валюте',
+    colSold:'Продажа\nнац. вал.', colResult:'Итог\nпо курсу',
+    addRow:'＋ Добавить строку', delRow:'🗑 Удалить строку', empty:'Нет товаров.\nНажмите «＋ Добавить».',
+    btnReset:'Сброс', btnSave:'💾 Сохранить', btnCatalog:'Каталог', btnImport:'Загрузка',
+    resetTitle:'Обнулить расчёты?',
+    resetLine1:'✅ Продажа в нац. валюте — очищается',
+    resetLine2:'✅ Множитель × — сбрасывается в 1',
+    resetLine3:'✅ Итог — пересчитывается',
+    resetLine4:'🔒 Себестоимость — НЕ меняется',
+    resetLine5:'🔒 Наименования — НЕ меняются',
+    resetNoData:'ℹ️ Нет данных для обнуления',
+    resetDone:'🔄 Продажи и множители сброшены',
+    rateTitle:'💱 Курс валюты', rateDesc:'Введите текущий курс валюты', rateUnit:'MDL/USD',
+    cancel:'Отмена', apply:'Применить',
+    searchTitle:'Поиск товара', searchDesc:'Введите название для поиска', close:'Найти', searchClear:'Сбросить',
+    markTitle:'Оформление строки', markCopy:'Копировать название', markFont:'Цвет шрифта', markFill:'Заливка строки', markClear:'Сбросить цвет',
+    calRevenue:'Выручка', calProfit:'Прибыль', calItems:'Позиций',
+    calColName:'Товар', calColCost:'Себест.\nв вал.', calColSold:'Продано\nнац. вал.', calColResult:'Итог\nв вал.',
+    calEmpty:'Нет сохранённых расчётов<br>за выбранный период.<br><br>Нажмите <b>💾 Сохранить</b>.',
+    calEntryWord:(n)=>n%10===1&&n%100!==11?'запись':[2,3,4].includes(n%10)&&![12,13,14].includes(n%100)?'записи':'записей',
+  },
+  en: {
+    title:'📊 Sales Calculator', sub:'Sales & Profit Tracking',
+    autosave:'Auto-saved', rateLabel:'Exchange rate',
+    calBtn:'History', calTitle:'📅 Sales History', calcBtn:'Calculator',
+    revenue:'Profit in\nlocal curr.', profit:'Profit\nby rate',
+    colName:'Product', colCost:'Cost in\ncurrency',
+    colSold:'Sold in\nlocal curr.', colResult:'Total\nby rate',
+    addRow:'＋ Add row', delRow:'🗑 Delete row', empty:'No items.\nTap «＋ Add».',
+    btnReset:'Reset', btnSave:'💾 Save', btnCatalog:'Catalog', btnImport:'Import',
+    resetTitle:'Reset calculations?',
+    resetLine1:'✅ Sales in local currency — cleared',
+    resetLine2:'✅ Multiplier × — reset to 1',
+    resetLine3:'✅ Total — recalculated',
+    resetLine4:'🔒 Cost in currency — unchanged',
+    resetLine5:'🔒 Product names — unchanged',
+    resetNoData:'ℹ️ No data to reset',
+    resetDone:'🔄 Sales and multipliers reset',
+    rateTitle:'💱 Exchange rate', rateDesc:'Enter current exchange rate', rateUnit:'local/USD',
+    cancel:'Cancel', apply:'Apply',
+    searchTitle:'Search product', searchDesc:'Enter name to filter', close:'Find', searchClear:'Clear',
+    markTitle:'Row style', markCopy:'Copy name', markFont:'Font color', markFill:'Row fill', markClear:'Clear colors',
+    calRevenue:'Revenue', calProfit:'Profit', calItems:'Items',
+    calColName:'Item', calColCost:'Cost in\ncurr.', calColSold:'Sold in\nlocal', calColResult:'Total in\ncurr.',
+    calEmpty:'No saved records<br>for the selected period.<br><br>Tap <b>💾 Save</b>.',
+    calEntryWord:(n)=>n===1?'record':'records',
+  },
+  ro: {
+    title:'📊 Calculul venitului', sub:'Evidenţa vânzărilor',
+    autosave:'Salvare automată', rateLabel:'Curs valutar',
+    calBtn:'Istoric', calTitle:'📅 Istoricul calculelor', calcBtn:'Calculator',
+    revenue:'Profit în\nval. naț.', profit:'Profit\nla curs',
+    colName:'Denumire', colCost:'Cost în\nvalută',
+    colSold:'Vânzare\nval. naț.', colResult:'Total\nla curs',
+    addRow:'＋ Adaugă rând', delRow:'🗑 Șterge rândul', empty:'Fără produse.\nApasă «＋ Adaugă».',
+    btnReset:'Resetare', btnSave:'💾 Salvează', btnCatalog:'Catalog', btnImport:'Încărcare',
+    resetTitle:'Resetați calculele?',
+    resetLine1:'✅ Vânzare în val. naț. — se șterge',
+    resetLine2:'✅ Multiplicator × — se resetează la 1',
+    resetLine3:'✅ Total — se recalculează',
+    resetLine4:'🔒 Cost în valută — neschimbat',
+    resetLine5:'🔒 Denumiri — neschimbate',
+    resetNoData:'ℹ️ Nu există date de resetat',
+    resetDone:'🔄 Vânzări și multiplicatori resetați',
+    rateTitle:'💱 Curs valutar', rateDesc:'Introduceţi cursul valutar curent', rateUnit:'lei/USD',
+    cancel:'Anulare', apply:'Aplică',
+    searchTitle:'Caută produs', searchDesc:'Introduceți denumirea', close:'Găsește', searchClear:'Resetează',
+    markTitle:'Stil rând', markCopy:'Copiază denumirea', markFont:'Culoare text', markFill:'Umplere rând', markClear:'Resetează culorile',
+    calRevenue:'Venit', calProfit:'Profit', calItems:'Poziții',
+    calColName:'Produs', calColCost:'Cost în\nvalută', calColSold:'Vândut\nval. naț.', calColResult:'Total în\nvalută',
+    calEmpty:'Nu există înregistrări<br>pentru perioada selectată.<br><br>Apasă <b>💾 Salvează</b>.',
+    calEntryWord:(n)=>n===1?'înregistrare':'înregistrări',
+  },
+  de: {
+    title:'📊 Umsatzrechner', sub:'Verkaufs- & Gewinnerfassung',
+    autosave:'Automatisch gespeichert', rateLabel:'Wechselkurs',
+    calBtn:'Verlauf', calTitle:'📅 Berechnungsverlauf', calcBtn:'Rechner',
+    revenue:'Gewinn in\nLandeswähr.', profit:'Gewinn\nnach Kurs',
+    colName:'Bezeichnung', colCost:'Kosten in\nWährung',
+    colSold:'Verkauf in\nLandeswähr.', colResult:'Gesamt\nnach Kurs',
+    addRow:'＋ Zeile hinzufügen', delRow:'🗑 Zeile löschen', empty:'Keine Produkte.\nTippe «＋ Hinzufügen».',
+    btnReset:'Zurücksetzen', btnSave:'💾 Speichern', btnCatalog:'Katalog', btnImport:'Laden',
+    resetTitle:'Berechnungen zurücksetzen?',
+    resetLine1:'✅ Verkauf in Landeswährung — wird geleert',
+    resetLine2:'✅ Multiplikator × — wird auf 1 zurückgesetzt',
+    resetLine3:'✅ Gesamt — wird neu berechnet',
+    resetLine4:'🔒 Kosten in Währung — unverändert',
+    resetLine5:'🔒 Produktnamen — unverändert',
+    resetNoData:'ℹ️ Keine Daten zum Zurücksetzen',
+    resetDone:'🔄 Verkäufe und Multiplikatoren zurückgesetzt',
+    rateTitle:'💱 Wechselkurs', rateDesc:'Aktuellen Wechselkurs eingeben', rateUnit:'Lei/USD',
+    cancel:'Abbrechen', apply:'Anwenden',
+    searchTitle:'Produkt suchen', searchDesc:'Name eingeben zum Filtern', close:'Finden', searchClear:'Zurücksetzen',
+    markTitle:'Zeilenstil', markCopy:'Name kopieren', markFont:'Schriftfarbe', markFill:'Zeilenfarbe', markClear:'Farben zurücksetzen',
+    calRevenue:'Umsatz', calProfit:'Gewinn', calItems:'Positionen',
+    calColName:'Produkt', calColCost:'Kosten in\nWährung', calColSold:'Verkauft in\nLandesw.', calColResult:'Gesamt in\nWährung',
+    calEmpty:'Keine gespeicherten Einträge<br>für den gewählten Zeitraum.<br><br>Tippe <b>💾 Speichern</b>.',
+    calEntryWord:(n)=>n===1?'Eintrag':'Einträge',
+  },
+  es: {
+    title:'📊 Cálculo de ingresos', sub:'Control de ventas y ganancias',
+    autosave:'Guardado automático', rateLabel:'Tipo de cambio',
+    calBtn:'Historial', calTitle:'📅 Historial de cálculos', calcBtn:'Calculadora',
+    revenue:'Ganancia en\nmon. nac.', profit:'Ganancia\npor tipo',
+    colName:'Nombre', colCost:'Coste en\ndivisa',
+    colSold:'Venta en\nmon. nac.', colResult:'Total\npor tipo',
+    addRow:'＋ Agregar fila', delRow:'🗑 Eliminar fila', empty:'Sin productos.\nToca «＋ Agregar».',
+    btnReset:'Reiniciar', btnSave:'💾 Guardar', btnCatalog:'Catálogo', btnImport:'Cargar',
+    resetTitle:'¿Reiniciar los cálculos?',
+    resetLine1:'✅ Venta en mon. nacional — se borra',
+    resetLine2:'✅ Multiplicador × — se restablece a 1',
+    resetLine3:'✅ Total — se recalcula',
+    resetLine4:'🔒 Coste en divisa — sin cambios',
+    resetLine5:'🔒 Nombres de productos — sin cambios',
+    resetNoData:'ℹ️ No hay datos para reiniciar',
+    resetDone:'🔄 Ventas y multiplicadores reiniciados',
+    rateTitle:'💱 Tipo de cambio', rateDesc:'Introduce el tipo de cambio actual', rateUnit:'lei/USD',
+    cancel:'Cancelar', apply:'Aplicar',
+    searchTitle:'Buscar producto', searchDesc:'Introducir nombre para buscar', close:'Buscar', searchClear:'Borrar',
+    markTitle:'Estilo de fila', markCopy:'Copiar nombre', markFont:'Color de texto', markFill:'Relleno de fila', markClear:'Quitar colores',
+    calRevenue:'Ingresos', calProfit:'Ganancia', calItems:'Artículos',
+    calColName:'Producto', calColCost:'Coste en\ndivisa', calColSold:'Vendido en\nmon. nac.', calColResult:'Total en\ndivisa',
+    calEmpty:'No hay registros guardados<br>para el período seleccionado.<br><br>Toca <b>💾 Guardar</b>.',
+    calEntryWord:(n)=>n===1?'registro':'registros',
+  }
+};
+
+function T(k, n) {
+  const L = LANGS[currentLang] || LANGS.ru;
+  const v = L[k] !== undefined ? L[k] : (LANGS.ru[k] || k);
+  return typeof v === 'function' ? v(n) : v;
+}
+
+function setLang(lang) {
+  currentLang = lang;
+  try { localStorage.setItem('app_lang', lang); } catch(e) {}
+  const s = (id, key) => { const el = document.getElementById(id); if (el) el.textContent = T(key); };
+  const h = (id, key) => { const el = document.getElementById(id); if (el) el.innerHTML = T(key).replace(/\n/g,'<br>'); };
+  s('L-title','title'); s('L-sub','sub'); s('L-autosave','autosave');
+  s('L-rate-label','rateLabel'); s('L-cal-btn','calBtn'); s('L-calc-btn','calcBtn'); s('L-cal-title','calTitle');
+  h('L-revenue','revenue'); h('L-profit','profit');
+  s('L-col-name','colName'); h('L-col-cost','colCost'); h('L-col-sold','colSold'); h('L-col-result','colResult');
+  s('L-add-row','addRow'); s('L-del-row','delRow'); h('L-empty','empty');
+  s('L-btn-reset','btnReset'); s('L-btn-save','btnSave'); s('L-btn-catalog','btnCatalog'); s('L-btn-import','btnImport');
+  s('L-rate-title','rateTitle'); s('L-rate-desc','rateDesc'); s('L-rate-unit','rateUnit');
+  s('L-cancel','cancel'); s('L-apply','apply');
+  s('L-search-title','searchTitle'); s('L-search-desc','searchDesc'); s('L-close','close'); s('L-search-clear','searchClear');
+  const sp = document.getElementById('L-search-pill'); if(sp) sp.textContent = T('searchTitle');
+  const si = document.getElementById('searchInput');
+  if (si) si.placeholder = T('searchTitle') + '…';
+  // update lang button highlights
+  ['ru','en','ro','de','es'].forEach(l => {
+    document.querySelectorAll('.lang-btn').forEach((b,i) => {
+      const ls = ['ru','en','ro','de','es'];
+      b.classList.toggle('active', ls[i] === lang);
+    });
+  });
+}
+
+// ── STORAGE ───────────────────────────────────────────────────
+const STORE_KEYS = ['sales_v2', 'sales_v1', 'vyruchka_data', 'dohod_data'];
+
+function loadData() {
+  try {
+    currentLang = localStorage.getItem('app_lang') || 'ru';
+    let d = null;
+    for (const k of STORE_KEYS) {
+      const raw = localStorage.getItem(k);
+      if (!raw) continue;
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed && (Array.isArray(parsed.rows) || parsed.rate)) { d = parsed; break; }
+      } catch (e) {}
+    }
+    if (!d) {
+      rate = 18.50;
+      rows = [];
+      nextId = 1;
+      return;
+    }
+    rate = parseFloat(d.rate) || 18.50;
+    rows = Array.isArray(d.rows) ? d.rows : [];
+    nextId = d.nextId || 1;
+    rows.forEach(r => {
+      if (r.multiplier === undefined || r.multiplier === null || r.multiplier === '') r.multiplier = 1;
+      if (r.id == null) r.id = nextId++;
+    });
+    const maxId = rows.reduce((m, r) => Math.max(m, parseInt(r.id) || 0), 0);
+    if (nextId <= maxId) nextId = maxId + 1;
+    // normalize primary key
+    saveLocal();
+  } catch (e) {
+    console.warn('loadData', e);
+  }
+}
+
+function saveLocal() {
+  try {
+    const payload = JSON.stringify({ rate, rows, nextId, savedAt: Date.now() });
+    localStorage.setItem('sales_v2', payload);
+    // second copy in case one key is cleared
+    localStorage.setItem('vyruchka_data', payload);
+  } catch (e) {
+    console.warn('saveLocal', e);
+    try { toast('⚠️ Не удалось сохранить на устройстве'); } catch (x) {}
+  }
+}
+
+/** Export product catalog (names + costs) to a JSON file */
+function exportCatalog() {
+  const catalog = rows.map(r => ({
+    name: r.name || '',
+    cost: r.cost || '',
+    sold: r.sold || '',
+    multiplier: r.multiplier || 1,
+    color: r.color || '',
+    bg: r.bg || ''
+  }));
+  const data = { type: 'vyruchka-catalog', version: 1, rate, catalog, exportedAt: new Date().toISOString() };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'katalog_tovarov.json';
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 800);
+  toast('📦 Каталог сохранён в файл');
+}
+
+/** Import catalog from JSON file (replaces current list after confirm) */
+function importCatalogFromFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function() {
+    try {
+      const data = JSON.parse(reader.result);
+      const list = data.catalog || data.rows || (Array.isArray(data) ? data : null);
+      if (!list || !list.length) { toast('⚠️ В файле нет товаров'); return; }
+      if (!confirm('Загрузить каталог из файла?\nТекущий список будет заменён (' + list.length + ' поз.).')) return;
+      if (data.rate && parseFloat(data.rate) > 0) {
+        rate = parseFloat(data.rate);
+        document.getElementById('rateDisplay').textContent = rate.toFixed(2);
+      }
+      rows = list.map((r, i) => ({
+        id: i + 1,
+        name: r.name || '',
+        cost: r.cost != null ? String(r.cost) : '',
+        sold: r.sold != null ? String(r.sold) : '',
+        multiplier: r.multiplier != null ? r.multiplier : 1,
+        color: r.color || '',
+        bg: r.bg || ''
+      }));
+      nextId = rows.length + 1;
+      selectedRowId = null;
+      openMult = null;
+      lastSnap = {};
+      saveLocal();
+      renderAll();
+      initSnap();
+      toast('✅ Загружено: ' + rows.length + ' позиций');
+    } catch (e) {
+      toast('⚠️ Ошибка чтения файла');
+      console.warn(e);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function triggerImportCatalog() {
+  const inp = document.getElementById('catalogFileInput');
+  if (inp) { inp.value = ''; inp.click(); }
+}
+
+
+// ── CALC ENGINE ───────────────────────────────────────────────
+function baseProfit(r) {
+  const sold = parseFloat(r.sold) || 0;
+  if (!sold) return null;
+  return (sold / rate) - (parseFloat(r.cost) || 0);
+}
+function displayedProfit(r) {
+  const bp = baseProfit(r);
+  return bp === null ? null : bp * (parseFloat(r.multiplier) || 1);
+}
+
+// ── SUMMARY ───────────────────────────────────────────────────
+function updateSummary() {
+  let profitCurr = 0, profitNat = 0;
+  rows.forEach(r => {
+    const dp = displayedProfit(r);
+    if (dp !== null) { profitCurr += dp; profitNat += dp * rate; }
+  });
+  document.getElementById('sumRevenue').textContent = profitNat.toFixed(2);
+  const el = document.getElementById('sumProfit');
+  el.textContent = (profitCurr >= 0 ? '+' : '') + profitCurr.toFixed(2);
+  el.className = 'sum-val ' + (profitCurr < 0 ? 'red' : 'green');
+}
+
+// ── RESULT CELL IN-PLACE UPDATE ───────────────────────────────
+function updateResultCell(id) {
+  const r = rows.find(x => x.id === id);
+  if (!r) return;
+  const w = document.querySelector(`.row-w[data-id="${id}"]`);
+  if (!w) return;
+  const badge = w.querySelector('.mult-badge');
+  const pv = w.querySelector('.profit-val');
+  const prev = w.querySelector('.mult-preview');
+  const m = parseFloat(r.multiplier) || 1;
+  const isOne = Math.abs(m - 1) < 0.00001;
+  const dp = displayedProfit(r);
+  if (badge) { badge.textContent = '×' + fmtM(m); badge.className = 'mult-badge' + (isOne ? ' muted' : ''); }
+  if (pv) {
+    pv.textContent = dp === null ? '—' : (dp >= 0 ? '+' : '') + dp.toFixed(2);
+    pv.className = 'profit-val ' + (dp === null ? 'zero' : dp >= 0 ? 'pos' : 'neg');
+  }
+  if (prev) {
+    prev.textContent = dp === null ? '= —' : '= ' + (dp >= 0 ? '+' : '') + dp.toFixed(2);
+    prev.className = 'mult-preview' + (dp === null ? '' : dp >= 0 ? ' pos' : ' neg');
+  }
+}
+
+// ── ROW OPERATIONS ────────────────────────────────────────────
+const FONT_COLORS = ['', '#1A2332', '#C62828', '#E65100', '#2E7D32', '#1565C0', '#6A1B9A', '#00838F'];
+const FILL_COLORS = ['', '#FFEBEE', '#FFF3E0', '#E8F5E9', '#E3F2FD', '#F3E5F5', '#E0F7FA', '#FFFDE7'];
+let markRowId = null;
+
+function openMark(id, ev) {
+  if (ev) { ev.preventDefault(); ev.stopPropagation(); }
+  const r = rows.find(x => x.id === id);
+  if (!r) return;
+  markRowId = id;
+  document.getElementById('L-mark-title').textContent = T('markTitle');
+  document.getElementById('L-mark-copy').textContent = T('markCopy');
+  document.getElementById('L-mark-font').textContent = T('markFont');
+  document.getElementById('L-mark-fill').textContent = T('markFill');
+  document.getElementById('L-mark-clear').textContent = T('markClear');
+  document.getElementById('L-mark-name').textContent = r.name || '—';
+  buildMarkPalettes(r);
+  document.getElementById('modalMark').classList.add('open');
+  return false;
+}
+function closeMark() {
+  document.getElementById('modalMark').classList.remove('open');
+  markRowId = null;
+}
+function buildMarkPalettes(r) {
+  const fp = document.getElementById('markFontPalette');
+  const bp = document.getElementById('markFillPalette');
+  fp.innerHTML = '';
+  bp.innerHTML = '';
+  FONT_COLORS.forEach(c => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'mark-swatch' + (!c ? ' none' : '') + ((r.color || '') === c ? ' on' : '');
+    if (c) b.style.background = c;
+    b.title = c || 'default';
+    b.onclick = function() { setMarkFont(c); };
+    fp.appendChild(b);
+  });
+  FILL_COLORS.forEach(c => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'mark-swatch' + (!c ? ' none' : '') + ((r.bg || '') === c ? ' on' : '');
+    if (c) b.style.background = c;
+    else b.classList.add('none');
+    b.title = c || 'none';
+    b.onclick = function() { setMarkFill(c); };
+    bp.appendChild(b);
+  });
+}
+function applyMarkToDom(r) {
+  const w = document.querySelector(`.row-w[data-id="${r.id}"]`);
+  if (!w) return;
+  const inp = w.querySelector('.cell-name input');
+  const item = w.querySelector('.row-item');
+  if (inp) inp.style.color = r.color || '';
+  if (item) item.style.background = r.bg || '';
+}
+function setMarkFont(c) {
+  const r = rows.find(x => x.id === markRowId);
+  if (!r) return;
+  r.color = c || '';
+  saveLocal();
+  applyMarkToDom(r);
+  buildMarkPalettes(r);
+}
+function setMarkFill(c) {
+  const r = rows.find(x => x.id === markRowId);
+  if (!r) return;
+  r.bg = c || '';
+  saveLocal();
+  applyMarkToDom(r);
+  buildMarkPalettes(r);
+}
+function clearMarkColors() {
+  const r = rows.find(x => x.id === markRowId);
+  if (!r) return;
+  r.color = '';
+  r.bg = '';
+  saveLocal();
+  applyMarkToDom(r);
+  buildMarkPalettes(r);
+  toast('🎨');
+}
+function copyMarkName() {
+  const r = rows.find(x => x.id === markRowId);
+  if (!r || !r.name) { toast('ℹ️'); return; }
+  const text = r.name;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function(){ toast('📋 ' + text); }).catch(function(){ fallbackCopy(text); });
+  } else {
+    fallbackCopy(text);
+  }
+}
+function fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed'; ta.style.left = '-9999px';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); toast('📋 ' + text); } catch(e) { toast('⚠️'); }
+  document.body.removeChild(ta);
+}
+
+function setField(id, field, value) {
+  const r = rows.find(x => x.id === id);
+  if (!r) return;
+  r[field] = value;
+  updateResultCell(id);
+  updateSummary();
+  saveLocal();
+}
+
+function setMult(id, value) {
+  const r = rows.find(x => x.id === id);
+  if (!r) return;
+  r.multiplier = value === '' ? 1 : (parseFloat(value) || 1);
+  updateResultCell(id);
+  updateSummary();
+  saveLocal();
+}
+
+function addRow() {
+  const nr = { id: nextId++, name: '', cost: '', sold: '', multiplier: 1, color: '', bg: '' };
+  rows.push(nr);
+  renderAll();
+  saveLocal();
+  selectRow(nr.id);
+  setTimeout(() => {
+    const w = document.querySelector(`.row-w[data-id="${nr.id}"]`);
+    if (w) w.querySelector('input').focus();
+  }, 60);
+}
+
+// Add after selected row (or at end if none selected)
+function addRowAfterSelected() {
+  const nr = { id: nextId++, name: '', cost: '', sold: '', multiplier: 1, color: '', bg: '' };
+  const idx = selectedRowId !== null ? rows.findIndex(r => r.id === selectedRowId) : -1;
+  if (idx >= 0) rows.splice(idx + 1, 0, nr);
+  else rows.push(nr);
+  renderAll();
+  saveLocal();
+  selectRow(nr.id);
+  setTimeout(() => {
+    const w = document.querySelector(`.row-w[data-id="${nr.id}"]`);
+    if (w) w.querySelector('input').focus();
+  }, 60);
+}
+
+// Delete selected row
+function deleteSelected() {
+  if (selectedRowId === null) { toast('ℹ️ Выберите строку для удаления'); return; }
+  const idx = rows.findIndex(r => r.id === selectedRowId);
+  rows = rows.filter(r => r.id !== selectedRowId);
+  if (openMult === selectedRowId) openMult = null;
+  delete lastSnap[selectedRowId];
+  // Select nearest remaining row
+  if (rows.length) {
+    const newIdx = Math.min(idx, rows.length - 1);
+    selectedRowId = rows[newIdx].id;
+  } else {
+    selectedRowId = null;
+  }
+  renderAll();
+  saveLocal();
+}
+
+function insertAfter(id) {
+  const idx = rows.findIndex(r => r.id === id);
+  const nr = { id: nextId++, name: '', cost: '', sold: '', multiplier: 1 };
+  rows.splice(idx + 1, 0, nr);
+  renderAll();
+  saveLocal();
+  selectRow(nr.id);
+  setTimeout(() => {
+    const w = document.querySelector(`.row-w[data-id="${nr.id}"]`);
+    if (w) w.querySelector('input').focus();
+  }, 60);
+}
+
+function deleteRow(id) {
+  selectedRowId = id;
+  deleteSelected();
+}
+
+// Select a row visually
+function selectRow(id) {
+  selectedRowId = id;
+  document.querySelectorAll('.row-w').forEach(w => {
+    w.classList.toggle('selected', parseInt(w.dataset.id) === id);
+  });
+  updateDelBtnState();
+}
+
+function updateDelBtnState() {
+  const btn = document.getElementById('L-del-row');
+  if (!btn) return;
+  btn.classList.toggle('disabled', selectedRowId === null);
+}
+
+// ── MULTIPLIER EXPANDER ───────────────────────────────────────
+function toggleMult(id) {
+  const wasOpen = openMult === id;
+  if (openMult !== null) {
+    const prev = document.querySelector(`.row-w[data-id="${openMult}"]`);
+    if (prev) prev.classList.remove('expanded');
+  }
+  openMult = null;
+  if (wasOpen) return;
+  openMult = id;
+  const w = document.querySelector(`.row-w[data-id="${id}"]`);
+  if (!w) return;
+  w.classList.add('expanded');
+  const r = rows.find(x => x.id === id);
+  const inp = w.querySelector('.mult-inp');
+  if (inp && r) { inp.value = fmtM(parseFloat(r.multiplier) || 1); setTimeout(() => { inp.focus(); inp.select(); }, 70); }
+}
+
+function multBlur(id) {
+  setTimeout(() => {
+    if (openMult !== id) return;
+    const w = document.querySelector(`.row-w[data-id="${id}"]`);
+    if (w && w.contains(document.activeElement)) return;
+    if (w) w.classList.remove('expanded');
+    openMult = null;
+  }, 200);
+}
+
+// ── RENDER ────────────────────────────────────────────────────
+function renderAll() {
+  const wrap = document.getElementById('rowsWrap');
+  wrap.querySelectorAll('.row-w').forEach(e => e.remove());
+  const empty = document.getElementById('emptyState');
+  if (!rows.length) { empty.classList.add('show'); updateSummary(); return; }
+  empty.classList.remove('show');
+
+  rows.forEach(r => {
+    const m = parseFloat(r.multiplier) || 1;
+    const isOne = Math.abs(m - 1) < 0.00001;
+    const dp = displayedProfit(r);
+    const pStr = dp === null ? '—' : (dp >= 0 ? '+' : '') + dp.toFixed(2);
+    const pCls = dp === null ? 'zero' : dp >= 0 ? 'pos' : 'neg';
+    const pvStr = dp === null ? '= —' : '= ' + (dp >= 0 ? '+' : '') + dp.toFixed(2);
+    const pvCls = dp === null ? '' : dp >= 0 ? ' pos' : ' neg';
+
+    const w = mk('div', 'row-w' + (openMult === r.id ? ' expanded' : '') + (selectedRowId === r.id ? ' selected' : ''));
+    w.dataset.id = r.id;
+    // Short tap = select; long press (~0.55s) = style menu
+    (function(rowId, el) {
+      let pressTimer = null;
+      let longFired = false;
+      let startX = 0, startY = 0;
+      const clearPress = function() {
+        if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+      };
+      const onDown = function(e) {
+        if (e.target.closest('.mult-exp')) return;
+        longFired = false;
+        const pt = e.touches ? e.touches[0] : e;
+        startX = pt.clientX; startY = pt.clientY;
+        clearPress();
+        pressTimer = setTimeout(function() {
+          longFired = true;
+          // haptic if available
+          try { if (navigator.vibrate) navigator.vibrate(25); } catch (x) {}
+          openMark(rowId);
+        }, 550);
+      };
+      const onMove = function(e) {
+        if (!pressTimer) return;
+        const pt = e.touches ? e.touches[0] : e;
+        if (Math.abs(pt.clientX - startX) > 12 || Math.abs(pt.clientY - startY) > 12) clearPress();
+      };
+      const onUp = function(e) {
+        clearPress();
+      };
+      el.addEventListener('touchstart', onDown, { passive: true });
+      el.addEventListener('touchmove', onMove, { passive: true });
+      el.addEventListener('touchend', onUp);
+      el.addEventListener('touchcancel', onUp);
+      el.addEventListener('mousedown', onDown);
+      el.addEventListener('mouseup', onUp);
+      el.addEventListener('mouseleave', onUp);
+      el.addEventListener('click', function(e) {
+        if (e.target.closest('.mult-exp')) return;
+        if (longFired) { e.preventDefault(); e.stopPropagation(); longFired = false; return; }
+        selectRow(rowId);
+      });
+      el.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+        openMark(rowId);
+      });
+    })(r.id, w);
+
+    const ri = mk('div', 'row-item');
+    if (r.bg) ri.style.background = r.bg;
+
+    // Name
+    const cn = mk('div', 'cell cell-name');
+    const iName = inpEl('text', r.name || '', 'Наименование');
+    const nameColor = r.color || '';
+    iName.style.cssText = 'font-weight:600;font-size:15px;padding:7px 4px;' + (nameColor ? 'color:' + nameColor + ';' : '');
+    iName.addEventListener('input', function() { setField(r.id, 'name', this.value); });
+    cn.appendChild(iName);
+
+    // Cost
+    const cc = mk('div', 'cell cell-num');
+    const iCost = inpEl('number', r.cost || '', '0.00');
+    iCost.dataset.field = 'cost'; iCost.step = '0.01'; iCost.min = '0';
+    iCost.setAttribute('inputmode', 'decimal');
+    iCost.addEventListener('input', function() { setField(r.id, 'cost', this.value); });
+    cc.appendChild(iCost);
+
+    // Sold
+    const cs = mk('div', 'cell cell-num');
+    const iSold = inpEl('number', r.sold || '', '0');
+    iSold.dataset.field = 'sold'; iSold.step = '1'; iSold.min = '0';
+    iSold.setAttribute('inputmode', 'decimal');
+    iSold.addEventListener('input', function() { setField(r.id, 'sold', this.value); });
+    cs.appendChild(iSold);
+
+    // Result (clickable → toggle mult expander)
+    const cr = mk('div', 'cell cell-result');
+    const rd = mk('div', 'result-disp');
+    const badge = mk('span', 'mult-badge' + (isOne ? ' muted' : ''));
+    badge.textContent = '×' + fmtM(m);
+    const pv = mk('span', 'profit-val ' + pCls);
+    pv.textContent = pStr;
+    rd.appendChild(badge); rd.appendChild(pv); cr.appendChild(rd);
+    cr.addEventListener('click', function(e) { e.stopPropagation(); toggleMult(r.id); });
+
+    ri.appendChild(cn); ri.appendChild(cc); ri.appendChild(cs);
+    ri.appendChild(cr);
+    w.appendChild(ri);
+
+    // Mult expander
+    const exp = mk('div', 'mult-exp');
+    const xL = mk('span', 'mult-x'); xL.textContent = '×';
+    const mWrap = mk('div', 'mult-inp-wrap');
+    const mI = document.createElement('input');
+    mI.type = 'number'; mI.className = 'mult-inp'; mI.dataset.field = 'multiplier';
+    mI.placeholder = '1'; mI.step = '0.01'; mI.min = '0';
+    mI.setAttribute('inputmode', 'decimal');
+    mI.value = fmtM(m);
+    mI.addEventListener('input', function() { setMult(r.id, this.value); });
+    mI.addEventListener('blur', function() { multBlur(r.id); });
+    exp.addEventListener('click', e => e.stopPropagation());
+    mWrap.appendChild(mI);
+    const mPrev = mk('span', 'mult-preview' + pvCls);
+    mPrev.textContent = pvStr;
+    exp.appendChild(xL); exp.appendChild(mWrap); exp.appendChild(mPrev);
+    w.appendChild(exp);
+
+    wrap.appendChild(w);
+  });
+
+  updateSummary();
+  applySearch();
+  updateDelBtnState();
+}
+
+// ── MODALS ────────────────────────────────────────────────────
+function openRate()  { document.getElementById('rateInput').value = rate; document.getElementById('modalRate').classList.add('open'); setTimeout(()=>document.getElementById('rateInput').focus(),220); }
+function closeRate() { document.getElementById('modalRate').classList.remove('open'); }
+function applyRate() {
+  const v = parseFloat(document.getElementById('rateInput').value);
+  if (!v || v <= 0) { toast('⚠️ Введите корректный курс'); return; }
+  rate = v;
+  document.getElementById('rateDisplay').textContent = v.toFixed(2);
+  closeRate(); lastSnap = {}; renderAll(); saveLocal();
+  toast('✅ Курс: ' + v.toFixed(2));
+}
+
+function openLang()  { document.getElementById('modalLang').classList.add('open'); }
+function closeLang() { document.getElementById('modalLang').classList.remove('open'); }
+
+function openSearch() { document.getElementById('modalSearch').classList.add('open'); setTimeout(()=>document.getElementById('searchInput').focus(),220); }
+function closeSearch(){ stopVoiceSearch(); document.getElementById('modalSearch').classList.remove('open'); }
+function clearSearch(){ document.getElementById('searchInput').value=''; doSearch(''); }
+function doSearch(q) {
+  searchQ = q.trim().toLowerCase();
+  const cnt = document.getElementById('searchCount');
+  applySearch();
+  const vis = rows.filter(r => !searchQ || (r.name||'').toLowerCase().includes(searchQ)).length;
+  if (searchQ) {
+    cnt.textContent = vis + ' / ' + rows.length;
+    cnt.style.display = 'block';
+  } else {
+    cnt.style.display = 'none';
+  }
+  const pill = document.getElementById('L-search-pill');
+  if (pill) {
+    if (searchQ) {
+      pill.textContent = '🔍 ' + vis;
+      pill.style.opacity = '1';
+    } else {
+      pill.textContent = (typeof T === 'function' ? T('searchTitle') : 'Поиск');
+    }
+  }
+}
+function applySearch() {
+  document.querySelectorAll('.row-w').forEach(w => {
+    const id = parseInt(w.dataset.id);
+    const r = rows.find(x => x.id === id);
+    if (!r) return;
+    const match = !searchQ || (r.name||'').toLowerCase().includes(searchQ);
+    w.style.display = match ? '' : 'none';
+    w.classList.toggle('search-match', !!searchQ && match);
+  });
+}
+
+function openCal() {
+  const today = new Date(); const from = new Date(today); from.setDate(from.getDate()-30);
+  document.getElementById('calFrom').value = dateStr(from);
+  document.getElementById('calTo').value = dateStr(today);
+  renderCal();
+  document.getElementById('modalCal').classList.add('open');
+}
+function closeCal(){ document.getElementById('modalCal').classList.remove('open'); }
+
+function renderCal() {
+  const body = document.getElementById('calBody');
+  let hist = {};
+  try { hist = JSON.parse(localStorage.getItem('sales_history') || '{}'); } catch(e) {}
+  const from = document.getElementById('calFrom').value;
+  const to   = document.getElementById('calTo').value;
+
+  // Show selected range
+  const rangeEl = document.getElementById('calDateRange');
+  if (from || to) {
+    const a = from ? fmtDateRu(from) : '…';
+    const b = to   ? fmtDateRu(to)   : '…';
+    rangeEl.textContent = a === b ? a : a + ' — ' + b;
+    rangeEl.style.display = 'block';
+  } else { rangeEl.style.display = 'none'; }
+
+  const dates = Object.keys(hist).sort().reverse().filter(d => (!from||d>=from) && (!to||d<=to));
+  body.innerHTML = '';
+
+  if (!dates.length) { body.innerHTML = `<div class="cal-empty">📭 ${T('calEmpty')}</div>`; return; }
+
+  dates.forEach(dk => {
+    const entries = hist[dk];
+    const grp = mk('div','cal-group');
+    const lbl = mk('div','cal-date-lbl');
+    lbl.textContent = fmtDateRu(dk) + '  ·  ' + entries.length + ' ' + T('calEntryWord', entries.length);
+    grp.appendChild(lbl);
+
+    [...entries].reverse().forEach((entry, ei) => {
+      const realIdx = entries.length - 1 - ei;
+      const eEl = mk('div','cal-entry');
+
+      const hdr = mk('div','cal-entry-hdr');
+      const time = mk('span','cal-time'); time.textContent = '⏰ ' + entry.time;
+      const rLbl = mk('span','cal-rate-lbl'); rLbl.textContent = '💱 ' + (entry.rate||0).toFixed(2);
+      const arr  = mk('span','cal-arrow'); arr.textContent = '▾';
+      hdr.appendChild(time); hdr.appendChild(rLbl); hdr.appendChild(arr);
+
+      const delB = mk('button','cal-del-btn'); delB.textContent = '✕'; delB.title = 'Удалить';
+      delB.addEventListener('click', e => { e.stopPropagation(); delHistEntry(dk, realIdx); });
+
+      const stats = mk('div','cal-stats');
+      const pc = entry.totalProfit >= 0 ? 'green' : 'red';
+      const ps = entry.totalProfit >= 0 ? '+' : '';
+      stats.innerHTML = `
+        <div class="cal-stat"><span class="cal-stat-lbl">${T('calRevenue')}</span><span class="cal-stat-val">${(entry.totalRevenue||0).toFixed(2)}</span></div>
+        <div class="cal-stat"><span class="cal-stat-lbl">${T('calProfit')}</span><span class="cal-stat-val ${pc}">${ps}${(entry.totalProfit||0).toFixed(2)}</span></div>
+        <div class="cal-stat"><span class="cal-stat-lbl">${T('calItems')}</span><span class="cal-stat-val">${(entry.rows||[]).length}</span></div>`;
+
+      const detail = mk('div','cal-detail');
+      let html = `<table class="cal-tbl"><thead><tr>
+        <th>${T('calColName')}</th>
+        <th style="line-height:1.2">${T('calColCost').replace(/\n/g,'<br>')}</th>
+        <th style="line-height:1.2">${T('calColSold').replace(/\n/g,'<br>')}</th>
+        <th>×</th>
+        <th style="line-height:1.2">${T('calColResult').replace(/\n/g,'<br>')}</th>
+      </tr></thead><tbody>`;
+      (entry.rows||[]).forEach(row => {
+        const bp = ((parseFloat(row.sold)||0) / (entry.rate||1)) - (parseFloat(row.cost)||0);
+        const mm = parseFloat(row.multiplier)||1;
+        const dp2 = bp * mm;
+        const sgn = dp2 >= 0 ? '+' : '';
+        const cls = dp2 >= 0 ? 'pos' : 'neg';
+        html += `<tr><td>${esc(row.name||'—')}</td><td>${(parseFloat(row.cost)||0).toFixed(2)}</td><td>${parseFloat(row.sold)||0}</td><td>${fmtM(mm)}</td><td class="td-p ${cls}">${sgn}${dp2.toFixed(2)}</td></tr>`;
+      });
+      html += '</tbody></table>';
+      detail.innerHTML = html;
+
+      eEl.appendChild(hdr); eEl.appendChild(delB); eEl.appendChild(stats); eEl.appendChild(detail);
+      eEl.addEventListener('click', function() { this.classList.toggle('open'); });
+      grp.appendChild(eEl);
+    });
+    body.appendChild(grp);
+  });
+}
+
+function delHistEntry(dateKey, index) {
+  if (!confirm('Удалить эту запись из истории?')) return;
+  let hist = {};
+  try { hist = JSON.parse(localStorage.getItem('sales_history')||'{}'); } catch(e) {}
+  if (hist[dateKey]) {
+    hist[dateKey].splice(index, 1);
+    if (!hist[dateKey].length) delete hist[dateKey];
+    try { localStorage.setItem('sales_history', JSON.stringify(hist)); } catch(e) {}
+    renderCal();
+    toast('🗑 Запись удалена');
+  }
+}
+
+// ── CALCULATOR ────────────────────────────────────────────────
+const cs = { display: '0', prev: null, op: null, newNum: false };
+function cUpdate() {
+  document.getElementById('calcDisp').textContent = cs.display;
+  document.getElementById('calcExpr').textContent = cs.op && cs.prev !== null ? cs.prev + ' ' + cs.op : '';
+}
+function cNum(n) {
+  if (cs.newNum) { cs.display = n; cs.newNum = false; }
+  else cs.display = cs.display === '0' ? n : cs.display + n;
+  cUpdate();
+}
+function cDot() {
+  if (cs.newNum) { cs.display = '0.'; cs.newNum = false; }
+  else if (!cs.display.includes('.')) cs.display += '.';
+  cUpdate();
+}
+function cOp(op) {
+  cEq();
+  cs.prev = cs.display; cs.op = op; cs.newNum = true;
+  cUpdate();
+}
+function cEq() {
+  if (!cs.op || cs.prev === null) { cs.newNum = false; return; }
+  const a = parseFloat(cs.prev), b = parseFloat(cs.display);
+  let res;
+  if (cs.op === '+') res = a + b;
+  else if (cs.op === '−') res = a - b;
+  else if (cs.op === '×') res = a * b;
+  else if (cs.op === '÷') res = b !== 0 ? a / b : 0;
+  else res = b;
+  cs.display = parseFloat(res.toFixed(10)).toString();
+  cs.prev = null; cs.op = null; cs.newNum = true;
+  cUpdate();
+}
+function cClear()  { cs.display='0'; cs.prev=null; cs.op=null; cs.newNum=false; cUpdate(); }
+function cSign()   { cs.display = String(parseFloat(cs.display) * -1); cUpdate(); }
+function cPct()    { cs.display = String(parseFloat(cs.display) / 100); cUpdate(); }
+
+function openCalc()  { cClear(); document.getElementById('modalCalc').classList.add('open'); }
+function closeCalc() { document.getElementById('modalCalc').classList.remove('open'); }
+
+// ── DIRTY TRACKING ────────────────────────────────────────────
+function rowKey(r) { return { cost:String(r.cost||''), sold:String(r.sold||''), multiplier:String(r.multiplier||1) }; }
+function snapRows() { const s={}; rows.forEach(r=>{ s[r.id]=rowKey(r); }); return s; }
+function changedRows() {
+  return rows.filter(r => {
+    if (!parseFloat(r.cost) && !parseFloat(r.sold)) return false;
+    const p = lastSnap[r.id]; if (!p) return true;
+    const c = rowKey(r);
+    return c.cost!==p.cost || c.sold!==p.sold || c.multiplier!==p.multiplier;
+  });
+}
+function initSnap() { lastSnap = snapRows(); }
+
+// ── SAVE ──────────────────────────────────────────────────────
+function saveData() {
+  // only positions that changed AND have a sale or non-1 multiplier
+  const changed = changedRows().filter(r => {
+    const sold = parseFloat(r.sold) || 0;
+    const mult = parseFloat(r.multiplier) || 1;
+    return sold > 0 || Math.abs(mult - 1) > 0.00001;
+  });
+  if (!changed.length) { toast('ℹ️ Нет изменений для сохранения'); return; }
+  saveLocal();
+  const today = dateStr(new Date());
+  const time = new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
+  let hist = {};
+  try { hist = JSON.parse(localStorage.getItem('sales_history')||'{}'); } catch(e) {}
+  if (!hist[today]) hist[today] = [];
+  let totRev = 0, totProfit = 0;
+  changed.forEach(r => {
+    totRev += (parseFloat(r.sold)||0) * (parseFloat(r.multiplier)||1);
+    const dp = displayedProfit(r); if (dp !== null) totProfit += dp;
+  });
+  hist[today].push({ time, rate, rows:JSON.parse(JSON.stringify(changed)), totalRevenue:totRev, totalProfit:totProfit });
+  try { localStorage.setItem('sales_history', JSON.stringify(hist)); } catch(e) {}
+  changed.forEach(r => { lastSnap[r.id] = rowKey(r); });
+  toast('💾 Сохранено: ' + changed.length + ' ' + pluralPos(changed.length));
+  const b = document.querySelector('.btn-save');
+  if (b) { b.style.transform='scale(.95)'; setTimeout(()=>b.style.transform='',150); }
+}
+
+// ── RESET ──────────────────────────────────────────────────────
+/** Rows that have actual sales data in this session (to write into history) */
+function rowsWithSales() {
+  return rows.filter(r => {
+    const sold = parseFloat(r.sold) || 0;
+    const mult = parseFloat(r.multiplier) || 1;
+    return sold > 0 || Math.abs(mult - 1) > 0.00001;
+  });
+}
+
+function pushHistoryEntry(list) {
+  if (!list || !list.length) return 0;
+  const today = dateStr(new Date());
+  const time = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  let hist = {};
+  try { hist = JSON.parse(localStorage.getItem('sales_history') || '{}'); } catch (e) {}
+  if (!hist[today]) hist[today] = [];
+  let totRev = 0, totProfit = 0;
+  list.forEach(r => {
+    totRev += (parseFloat(r.sold) || 0) * (parseFloat(r.multiplier) || 1);
+    const dp = displayedProfit(r);
+    if (dp !== null) totProfit += dp;
+  });
+  hist[today].push({
+    time, rate,
+    rows: JSON.parse(JSON.stringify(list)),
+    totalRevenue: totRev,
+    totalProfit: totProfit
+  });
+  try { localStorage.setItem('sales_history', JSON.stringify(hist)); } catch (e) {}
+  return list.length;
+}
+
+function confirmReset() {
+  const toSave = rowsWithSales();
+  if (!toSave.length) { toast(T('resetNoData')); return; }
+  const msg = T('resetTitle') + '\n\n' +
+    '💾 В историю: только ' + toSave.length + ' ' + pluralPos(toSave.length) + ' с продажами\n\n' +
+    T('resetLine1') + '\n' + T('resetLine2') + '\n' +
+    T('resetLine3') + '\n' + T('resetLine4') + '\n' + T('resetLine5');
+  if (!confirm(msg)) return;
+
+  // 1) save ONLY rows with sales/multiplier changes into history
+  const n = pushHistoryEntry(toSave);
+
+  // 2) clear sales fields (keep name + cost)
+  rows.forEach(r => { r.sold = ''; r.multiplier = 1; });
+  if (openMult !== null) {
+    const p = document.querySelector(`.row-w[data-id="${openMult}"]`);
+    if (p) p.classList.remove('expanded');
+    openMult = null;
+  }
+  document.querySelectorAll('.row-w').forEach(w => {
+    const soldI = w.querySelector('input[data-field="sold"]');
+    if (soldI) soldI.value = '';
+    const multI = w.querySelector('input[data-field="multiplier"]');
+    if (multI) multI.value = '1';
+    const id = parseInt(w.dataset.id);
+    if (!isNaN(id)) updateResultCell(id);
+  });
+  updateSummary();
+  saveLocal();
+  // 3) snapshot current state so next «Сохранить» does not dump all rows
+  lastSnap = snapRows();
+  toast('💾 В историю: ' + n + ' · ' + T('resetDone'));
+}
+
+// ── HELPERS ───────────────────────────────────────────────────
+function mk(tag, cls) { const e=document.createElement(tag); if(cls) e.className=cls; return e; }
+function inpEl(type, value, placeholder) {
+  const i=document.createElement('input');
+  i.type=type; i.value=value; i.placeholder=placeholder; return i;
+}
+function fmtM(m) { if(!m||isNaN(m)) return '1'; if(Number.isInteger(m)) return String(m); return parseFloat(m.toFixed(4)).toString(); }
+function dateStr(d) { return d.toISOString().split('T')[0]; }
+function fmtDateRu(s) {
+  const LOC = {
+    ru: { months:['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'], days:['Вс','Пн','Вт','Ср','Чт','Пт','Сб'] },
+    en: { months:['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'], days:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] },
+    ro: { months:['ian','feb','mar','apr','mai','iun','iul','aug','sep','oct','nov','dec'], days:['Du','Lu','Ma','Mi','Jo','Vi','Sâ'] },
+    de: { months:['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'], days:['So','Mo','Di','Mi','Do','Fr','Sa'] },
+    es: { months:['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'], days:['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'] },
+  };
+  const loc = LOC[currentLang] || LOC.ru;
+  const d = new Date(s + 'T12:00:00');
+  return loc.days[d.getDay()] + ', ' + d.getDate() + ' ' + loc.months[d.getMonth()] + ' ' + d.getFullYear();
+}
+function pluralPos(n) {
+  if(n%10===1&&n%100!==11) return 'позиция';
+  if([2,3,4].includes(n%10)&&![12,13,14].includes(n%100)) return 'позиции';
+  return 'позиций';
+}
+function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function toast(msg) {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+
+// ── PINCH / ZOOM ──────────────────────────────────────────────
+let appZoom = 1;
+const ZOOM_MIN = 1;
+const ZOOM_MAX = 2.2;
+const ZOOM_SENS = 0.42;      // <1 = slower / smoother pinch
+const ZOOM_STEP = 0.02;      // snap for predictable levels
+let pinchStartDist = 0;
+let pinchStartZoom = 1;
+let zoomRaf = 0;
+
+function snapZoom(z) {
+  const s = Math.round(z / ZOOM_STEP) * ZOOM_STEP;
+  return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(s * 100) / 100));
+}
+
+function updateZoomBtn() {
+  const btn = document.getElementById('zoomReset');
+  if (!btn) return;
+  btn.textContent = '100%';
+  const zoomed = appZoom > 1.02;
+  btn.classList.toggle('show', zoomed);
+  if (zoomed) {
+    btn.style.zoom = (1 / appZoom).toFixed(4);
+  } else {
+    btn.style.zoom = 1;
+  }
+}
+
+function applyAppZoom() {
+  const z = appZoom;
+  document.documentElement.style.setProperty('--app-zoom', String(z));
+  if (Math.abs(z - 1) < 0.015) {
+    appZoom = 1;
+    document.body.style.zoom = 1;
+    document.body.style.removeProperty('transform');
+    document.body.style.removeProperty('transform-origin');
+    document.body.style.removeProperty('width');
+  } else {
+    document.body.style.zoom = z;
+  }
+  updateZoomBtn();
+}
+
+function resetAppZoom(ev) {
+  if (ev) { ev.preventDefault(); ev.stopPropagation(); }
+  appZoom = 1;
+  pinchStartDist = 0;
+  pinchStartZoom = 1;
+  document.documentElement.style.setProperty('--app-zoom', '1');
+  document.body.style.zoom = 1;
+  document.body.style.transform = '';
+  document.body.style.transformOrigin = '';
+  document.body.style.width = '';
+  void document.body.offsetHeight;
+  updateZoomBtn();
+  toast('🔍 100%');
+  return false;
+}
+
+function touchDist(touches) {
+  const a = touches[0], b = touches[1];
+  return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+}
+
+document.addEventListener('touchstart', function(e) {
+  if (e.touches.length === 2) {
+    pinchStartDist = touchDist(e.touches);
+    pinchStartZoom = appZoom;
+  }
+}, { passive: true });
+
+document.addEventListener('touchmove', function(e) {
+  if (e.touches.length !== 2 || pinchStartDist < 12) return;
+  const raw = touchDist(e.touches) / pinchStartDist;
+  // dampen: only a fraction of the finger movement applies to zoom
+  const damp = 1 + (raw - 1) * ZOOM_SENS;
+  const next = snapZoom(pinchStartZoom * damp);
+  if (Math.abs(next - appZoom) < 0.001) return;
+  appZoom = next;
+  if (!zoomRaf) {
+    zoomRaf = requestAnimationFrame(function() {
+      zoomRaf = 0;
+      applyAppZoom();
+    });
+  }
+}, { passive: true });
+
+document.addEventListener('touchend', function(e) {
+  if (e.touches.length < 2) {
+    pinchStartDist = 0;
+    // soft snap near 1.0 back to 100%
+    if (appZoom < 1.04) {
+      appZoom = 1;
+      applyAppZoom();
+    }
+  }
+}, { passive: true });
+
+document.addEventListener('touchcancel', function() {
+  pinchStartDist = 0;
+}, { passive: true });
+
+
+// ── VOICE SEARCH ──────────────────────────────────────────────
+let voiceRec = null;
+let voiceActive = false;
+
+const VOICE_LANG = { ru: 'ru-RU', en: 'en-US', ro: 'ro-RO', de: 'de-DE', es: 'es-ES' };
+
+function getSpeechRecognition() {
+  return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+}
+
+function stopVoiceSearch() {
+  voiceActive = false;
+  try { if (voiceRec) voiceRec.stop(); } catch (e) {}
+  const btn = document.getElementById('voiceSearchBtn');
+  const st = document.getElementById('voiceStatus');
+  if (btn) btn.classList.remove('listening');
+  if (st) { st.style.display = 'none'; st.textContent = ''; }
+}
+
+function toggleVoiceSearch() {
+  const SR = getSpeechRecognition();
+  if (!SR) {
+    toast('⚠️ Голосовой поиск не поддерживается в этом браузере. Откройте в Chrome.');
+    return;
+  }
+  if (voiceActive) { stopVoiceSearch(); return; }
+
+  voiceRec = new SR();
+  voiceRec.lang = VOICE_LANG[currentLang] || 'ru-RU';
+  voiceRec.interimResults = true;
+  voiceRec.continuous = false;
+  voiceRec.maxAlternatives = 1;
+
+  const btn = document.getElementById('voiceSearchBtn');
+  const st = document.getElementById('voiceStatus');
+  const inp = document.getElementById('searchInput');
+
+  voiceRec.onstart = function() {
+    voiceActive = true;
+    if (btn) btn.classList.add('listening');
+    if (st) {
+      st.style.display = 'block';
+      st.textContent = currentLang === 'ru' ? '🎙 Говорите название…' :
+        currentLang === 'ro' ? '🎙 Spuneți denumirea…' :
+        currentLang === 'de' ? '🎙 Namen sprechen…' :
+        currentLang === 'es' ? '🎙 Diga el nombre…' :
+        '🎙 Speak the name…';
+    }
+  };
+
+  voiceRec.onresult = function(ev) {
+    let finalText = '';
+    let interim = '';
+    for (let i = ev.resultIndex; i < ev.results.length; i++) {
+      const tr = ev.results[i][0].transcript;
+      if (ev.results[i].isFinal) finalText += tr;
+      else interim += tr;
+    }
+    const text = (finalText || interim).trim();
+    if (text && inp) {
+      inp.value = text;
+      doSearch(text);
+    }
+    if (finalText) {
+      stopVoiceSearch();
+      toast('🔍 ' + finalText.trim());
+    }
+  };
+
+  voiceRec.onerror = function(ev) {
+    stopVoiceSearch();
+    if (ev.error === 'not-allowed') {
+      toast('⚠️ Разрешите доступ к микрофону');
+    } else if (ev.error !== 'aborted' && ev.error !== 'no-speech') {
+      toast('⚠️ Ошибка голоса: ' + ev.error);
+    }
+  };
+
+  voiceRec.onend = function() {
+    if (voiceActive) stopVoiceSearch();
+  };
+
+  try {
+    voiceRec.start();
+  } catch (e) {
+    stopVoiceSearch();
+    toast('⚠️ Не удалось запустить микрофон');
+  }
+}
+
+// stop listening when search modal closes
+const _closeSearchOrig = typeof closeSearch === 'function' ? null : null;
+
+// ── INIT ──────────────────────────────────────────────────────
+const hadStored = !!(localStorage.getItem('sales_v2') || localStorage.getItem('vyruchka_data') || localStorage.getItem('sales_v1'));
+loadData();
+document.getElementById('rateDisplay').textContent = rate.toFixed(2);
+document.getElementById('rateInput').value = rate;
+if (!rows.length && !hadStored) {
+  // first launch only — demo rows
+  rows.push({id:nextId++,name:'Пример товара 1',cost:'10.00',sold:'220',multiplier:1});
+  rows.push({id:nextId++,name:'Пример товара 2',cost:'5.50',sold:'130',multiplier:2});
+  rows.push({id:nextId++,name:'',cost:'',sold:'',multiplier:1});
+  saveLocal();
+}
+renderAll();
+setLang(currentLang);
+initSnap();
+if (rows.length) {
+  setTimeout(function(){ toast('📂 Загружено: ' + rows.length + ' позиций'); }, 400);
+}
+
+document.getElementById('rateInput').addEventListener('keydown', e => {
+  if (e.key==='Enter') applyRate();
+  if (e.key==='Escape') closeRate();
+});
+</script>
+</body>
+</html>
